@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Tiaki — Flight Booking Over iMessage</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400&family=Cormorant+Garamond:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --paper: #f7f5f0;
+  --ink: #0e0e0e;
+  --accent: #1a56db;
+  --accent-dark: #1245b8;
+  --stone: #c8c4bc;
+  --muted: #8a8680;
+  --line: rgba(14,14,14,0.1);
+}
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'DM Mono', monospace;
+  font-weight: 300;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── TICKER ── */
+.ticker {
+  overflow: hidden;
+  padding: 10px 0;
+  background: var(--accent);
+  position: relative;
+  z-index: 10;
+}
+.ticker-inner {
+  display: flex;
+  gap: 80px;
+  animation: ticker 24s linear infinite;
+  white-space: nowrap;
+}
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-item {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(247,245,240,0.6);
+  flex-shrink: 0;
+}
+.ticker-item span { color: #fff; margin-right: 8px; }
+
+/* ── NAV ── */
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 10;
+  background: var(--paper);
+}
+.nav-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 34px;
+  font-weight: 200;
+  letter-spacing: 0em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.nav-tag {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 4px 10px;
+}
+
+/* ── HERO ── */
+.hero {
+  position: relative;
+  z-index: 1;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Full-bleed headline */
+.hero-headline {
+  padding: 48px 28px 0;
+  position: relative;
+  z-index: 2;
+  animation: fadeUp 0.8s ease 0.1s both;
+}
+
+.hero-eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(72px, 22vw, 160px);
+  line-height: 0.88;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+h1 .accent { color: var(--accent); display: block; }
+
+.hero-sub {
+  margin-top: 20px;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  max-width: 280px;
+  animation: fadeUp 0.6s ease 0.4s both;
+}
+
+/* Phone floats overlapping into next section */
+.hero-phone-wrap {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+  padding-bottom: 60px;
+  animation: fadeUp 0.8s ease 0.3s both;
+}
+
+/* Phone extends below hero boundary */
+.phone-container {
+  position: relative;
+  width: 240px;
+  height: 490px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 40px 60px rgba(0,0,0,0.25));
+}
+
+.phone-screen-area {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  right: 10px;
+  bottom: 6px;
+  border-radius: 46px;
+  overflow: hidden;
+  background: #fff;
+  z-index: 1;
+}
+
+.phone-frame-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* ── iMessage UI ── */
+.imsg-screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  font-family: -apple-system, 'SF Pro Text', sans-serif;
+}
+
+.imsg-island-spacer { height: 36px; flex-shrink: 0; }
+
+.imsg-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 14px 8px;
+  flex-shrink: 0;
+  border-bottom: 0.5px solid rgba(0,0,0,0.1);
+}
+.imsg-back-btn { display: flex; align-items: center; color: #007aff; min-width: 28px; }
+.imsg-center { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.imsg-avatar-sm {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 600; color: #fff;
+  font-family: -apple-system, sans-serif;
+}
+.imsg-contact-name { font-size: 11px; font-weight: 600; color: #000; font-family: -apple-system, sans-serif; }
+.imsg-facetime { color: #007aff; min-width: 28px; display: flex; justify-content: flex-end; }
+
+.imsg-messages {
+  flex: 1;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.imsg-time-label {
+  font-size: 10px; color: #8e8e93;
+  text-align: center; padding: 2px 0 6px; font-weight: 500;
+}
+
+.imsg-bubble {
+  max-width: 75%;
+  padding: 7px 11px;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: pre-line;
+  border-radius: 17px;
+  opacity: 0;
+  transform: scale(0.92) translateY(4px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  word-break: break-word;
+}
+.imsg-bubble.show { opacity: 1; transform: scale(1) translateY(0); }
+.imsg-bubble.me {
+  background: #007aff; color: #fff;
+  align-self: flex-end; border-bottom-right-radius: 4px;
+}
+.imsg-bubble.tiaki {
+  background: #e9e9eb; color: #000;
+  align-self: flex-start; border-bottom-left-radius: 4px;
+}
+
+.imsg-typing {
+  background: #e9e9eb;
+  border-radius: 17px; border-bottom-left-radius: 4px;
+  padding: 9px 13px;
+  display: flex; gap: 3px; align-items: center;
+  align-self: flex-start;
+  opacity: 0; transition: opacity 0.2s;
+  width: fit-content; flex-shrink: 0;
+}
+.imsg-typing.show { opacity: 1; }
+.td { width: 6px; height: 6px; background: #8e8e93; border-radius: 50%; animation: td 1.2s ease infinite; }
+.td:nth-child(2) { animation-delay: 0.15s; }
+.td:nth-child(3) { animation-delay: 0.3s; }
+@keyframes td {
+  0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.imsg-inputbar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px 16px;
+  border-top: 0.5px solid rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+.imsg-plus {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid #8e8e93;
+  display: flex; align-items: center; justify-content: center;
+  color: #8e8e93; font-size: 16px; line-height: 1;
+}
+.imsg-input-pill {
+  flex: 1; background: #fff;
+  border: 1px solid #d1d1d6; border-radius: 18px;
+  padding: 4px 10px; font-size: 13px; color: #8e8e93;
+}
+.imsg-mic { color: #8e8e93; }
+
+/* ── OVERLAP SPACER — phone extends into this ── */
+.hero-overlap-spacer {
+  height: 80px;
+  background: var(--paper);
+  position: relative;
+  z-index: 2;
+  border-bottom: 1px solid var(--line);
+}
+
+/* CTA below hero */
+.hero-cta-strip {
+  padding: 32px 28px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 1;
+  animation: fadeUp 0.6s ease 0.6s both;
+}
+.hero-cta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 4px;
+  transition: gap 0.2s;
+}
+.hero-cta-link:hover { gap: 20px; }
+
+/* ── DESKTOP — two column layout ── */
+@media (min-width: 900px) {
+  .hero {
+    flex-direction: row;
+    min-height: 92vh;
+    align-items: stretch;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .hero-left-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-right: 1px solid var(--line);
+  }
+
+  .hero-headline {
+    padding: 80px 56px;
+  }
+
+  .hero-sub { max-width: 380px; }
+
+  .hero-phone-wrap {
+    width: 420px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    background: #ebe8e2;
+    margin-top: 0;
+    padding-bottom: 48px;
+  }
+
+  .hero-overlap-spacer { display: none; }
+  .hero-cta-strip { display: none; }
+}
+
+/* ── SECTIONS ── */
+.section {
+  padding: 72px 28px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 900px) {
+  .section { padding: 80px 48px; }
+}
+
+.section-label {
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.section-label::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+.steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--line);
+}
+
+@media (min-width: 900px) {
+  .steps { grid-template-columns: repeat(4, 1fr); }
+}
+
+.step {
+  padding: 24px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  position: relative;
+}
+.step:nth-child(2n) { border-right: none; }
+.step:nth-child(3), .step:nth-child(4) { border-bottom: none; }
+
+@media (min-width: 900px) {
+  .step { padding: 32px; border-bottom: none; }
+  .step:nth-child(2n) { border-right: 1px solid var(--line); }
+  .step:last-child { border-right: none; }
+}
+
+.step-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 56px; line-height: 1;
+  color: var(--line);
+  position: absolute; top: 12px; right: 16px;
+}
+.step-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 24px; color: var(--ink); margin-bottom: 8px; position: relative;
+}
+.step-body { font-size: 11px; line-height: 1.8; color: var(--muted); position: relative; }
+
+/* ── CTA ── */
+.cta-section {
+  padding: 72px 28px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 900px) {
+  .cta-section { padding: 80px 48px; }
+}
+
+.cta-section h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(56px, 12vw, 96px);
+  line-height: 0.95; color: var(--ink); margin-bottom: 40px;
+}
+
+.imessage-mode { display: none; }
+.imessage-mode.active { display: block; }
+
+.imessage-btn {
+  display: inline-flex; align-items: center; gap: 12px;
+  background: var(--accent); color: #fff;
+  font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 400;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  padding: 18px 32px; text-decoration: none;
+  transition: all 0.3s ease; border: none; cursor: pointer;
+}
+.imessage-btn:hover { background: var(--accent-dark); gap: 20px; }
+.imessage-sub { margin-top: 16px; font-size: 11px; color: var(--muted); line-height: 1.7; }
+
+.form-mode { display: none; }
+.form-mode.active { display: block; }
+
+.form-field { border-bottom: 1px solid var(--line); transition: border-color 0.3s; }
+.form-field:first-child { border-top: 1px solid var(--line); }
+.form-field:focus-within { border-color: var(--accent); }
+.form-field label {
+  display: block; font-size: 9px; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--muted); padding: 14px 0 0; transition: color 0.3s;
+}
+.form-field:focus-within label { color: var(--accent); }
+.form-field input {
+  display: block; width: 100%; background: transparent; border: none; outline: none;
+  font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 300;
+  color: var(--ink); padding: 6px 0 14px;
+}
+.form-field input::placeholder { color: var(--stone); }
+.form-field.error { border-color: #8b2020; }
+.form-field.error label { color: #8b2020; }
+.error-text { font-size: 10px; color: #8b2020; padding: 2px 0 8px; }
+
+.submit-btn {
+  margin-top: 32px; background: var(--accent); color: #fff; border: none;
+  font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 400;
+  letter-spacing: 0.15em; text-transform: uppercase; padding: 18px 32px;
+  cursor: pointer; transition: all 0.3s ease;
+  display: inline-flex; align-items: center; gap: 12px;
+}
+.submit-btn:hover { background: var(--accent-dark); gap: 20px; }
+.submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.form-note { font-size: 10px; color: var(--muted); margin-top: 16px; line-height: 1.6; }
+
+.success-msg { display: none; padding: 40px 0; }
+.success-msg.visible { display: block; }
+.success-msg .big {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 80px; color: var(--accent); line-height: 1; margin-bottom: 16px;
+}
+.success-msg p { font-size: 13px; color: var(--muted); line-height: 1.8; }
+
+footer {
+  padding: 28px;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 16px; position: relative; z-index: 1;
+}
+
+@media (min-width: 900px) {
+  footer { padding: 32px 48px; }
+}
+
+.footer-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 34px;
+  font-weight: 200;
+  letter-spacing: 0em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.footer-note { font-size: 10px; color: var(--stone); }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<div class="ticker">
+  <div class="ticker-inner">
+    <div class="ticker-item"><span>✦</span>iMessage flight booking</div>
+    <div class="ticker-item"><span>✦</span>Search. Book. Confirm.</div>
+    <div class="ticker-item"><span>✦</span>No apps. No websites.</div>
+    <div class="ticker-item"><span>✦</span>Just text.</div>
+    <div class="ticker-item"><span>✦</span>Launching soon</div>
+    <div class="ticker-item"><span>✦</span>iMessage flight booking</div>
+    <div class="ticker-item"><span>✦</span>Search. Book. Confirm.</div>
+    <div class="ticker-item"><span>✦</span>No apps. No websites.</div>
+    <div class="ticker-item"><span>✦</span>Just text.</div>
+    <div class="ticker-item"><span>✦</span>Launching soon</div>
+  </div>
+</div>
+
+<section class="hero">
+  <!-- Mobile: stacked. Desktop: left column -->
+  <div class="hero-left-col">
+    <div class="hero-headline">
+      <div class="hero-eyebrow">Personal flight booking</div>
+      <h1>Book flights<span class="accent">over text.</span></h1>
+      <p class="hero-sub">An AI travel agent in your iMessage. Text where you want to fly — it searches, books, pays, and confirms.</p>
+      <!-- Desktop CTA -->
+      <div style="margin-top: 48px; display: none;" class="desktop-cta">
+        <a href="#join" class="hero-cta-link">
+          Get early access
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phone demo -->
+  <div class="hero-phone-wrap" id="phoneDemoWrap">
+    <div class="phone-container">
+      <div class="phone-screen-area">
+        <div class="imsg-screen">
+          <div class="imsg-island-spacer"></div>
+          <div class="imsg-navbar">
+            <div class="imsg-back-btn">
+              <svg width="10" height="17" viewBox="0 0 10 17" fill="none">
+                <path d="M8.5 1.5L1.5 8.5L8.5 15.5" stroke="#007aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="imsg-center">
+              <div class="imsg-avatar-sm">T</div>
+              <div class="imsg-contact-name">Tiaki</div>
+            </div>
+            <div class="imsg-facetime">
+              <svg width="26" height="18" viewBox="0 0 28 20" fill="none">
+                <rect x="0.5" y="2.5" width="16" height="15" rx="3.5" stroke="#007aff" stroke-width="1.5"/>
+                <path d="M17.5 7.5L26 3v14l-8.5-4.5V7.5z" stroke="#007aff" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+          <div class="imsg-messages" id="msgArea">
+            <div class="imsg-time-label">Today 9:41 AM</div>
+            <div class="imsg-typing" id="typingEl">
+              <div class="td"></div><div class="td"></div><div class="td"></div>
+            </div>
+          </div>
+          <div class="imsg-inputbar">
+            <div class="imsg-plus">+</div>
+            <div class="imsg-input-pill">iMessage</div>
+            <div class="imsg-mic">
+              <svg width="14" height="18" viewBox="0 0 16 20" fill="none">
+                <rect x="5" y="0.5" width="6" height="11" rx="3" stroke="#8e8e93" stroke-width="1.2"/>
+                <path d="M1.5 9.5A6.5 6.5 0 0014.5 9.5" stroke="#8e8e93" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="8" y1="16" x2="8" y2="19.5" stroke="#8e8e93" stroke-width="1.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <img class="phone-frame-img" src="iphone-frame.png" alt="">
+    </div>
+  </div>
+</section>
+
+<!-- Mobile CTA strip -->
+<div class="hero-cta-strip">
+  <a href="#join" class="hero-cta-link">
+    Get early access
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </a>
+</div>
+
+<section class="section">
+  <div class="section-label">How it works</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-title">Text your trip</div>
+      <div class="step-body">Just say where you want to go and when. Tiaki learns your preferences.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-title">Pick a flight</div>
+      <div class="step-body">Get the top options ranked for you. Tell Tiaki which one.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-title">Confirm</div>
+      <div class="step-body">Say yes. Tiaki charges your saved card and sends the confirmation.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-title">That's it</div>
+      <div class="step-body">Boarding pass in your inbox. You never left iMessage.</div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-section" id="join">
+  <h2>Get early<br>access</h2>
+
+  <div class="imessage-mode" id="imessageMode">
+    <a class="imessage-btn" href="#" id="imessageBtn">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 1C4.134 1 1 3.806 1 7.25c0 1.742.773 3.312 2.02 4.436L2.5 14l2.668-1.199A7.2 7.2 0 008 13.5c3.866 0 7-2.806 7-6.25S11.866 1 8 1z" fill="currentColor"/>
+      </svg>
+      Text us on iMessage
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+    <p class="imessage-sub">Opens iMessage on your device. We'll take it from there.</p>
+  </div>
+
+  <div class="form-mode" id="formMode">
+    <div id="waitlistForm">
+      <div class="form-field" id="field-name">
+        <label for="name">Name</label>
+        <input type="text" id="name" placeholder="Amman Ahmed" autocomplete="name">
+      </div>
+      <div class="form-field" id="field-email">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-field" id="field-airport">
+        <label for="airport">Home airport</label>
+        <input type="text" id="airport" placeholder="AUH, DXB, LHR…" autocomplete="off">
+      </div>
+      <button class="submit-btn" id="submitBtn" type="button">
+        Join waitlist
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <p class="form-note">No spam. Just a message when we're ready for you.</p>
+    </div>
+    <div class="success-msg" id="successMsg">
+      <div class="big">You're in.</div>
+      <p>We'll be in touch when<br>Tiaki is ready for you.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">Tiaki</div>
+  <div class="footer-note">© 2026 Tiaki</div>
+</footer>
+
+<script>
+  // ── CONFIG ────────────────────────────────────────────
+  const SIGNUP_MODE = 'imessage'; // 'imessage' or 'form'
+  const IMESSAGE_NUMBER = '+1XXXXXXXXXX';
+  // ─────────────────────────────────────────────────────
+
+  if (SIGNUP_MODE === 'imessage') {
+    document.getElementById('imessageMode').classList.add('active');
+    document.getElementById('imessageBtn').href = `sms:${IMESSAGE_NUMBER}&body=Hey`;
+  } else {
+    document.getElementById('formMode').classList.add('active');
+  }
+
+  // Show desktop CTA on wide screens
+  if (window.innerWidth >= 900) {
+    document.querySelector('.desktop-cta').style.display = 'block';
+  }
+
+  // ── Demo ──────────────────────────────────────────────
+  const MSGS = [
+    { s: 'me',    t: 'fly me to london next friday, business', ms: 700 },
+    { s: 'type',  ms: 1500 },
+    { s: 'tiaki', t: 'On it ✈️', ms: 2600 },
+    { s: 'type',  ms: 3300 },
+    { s: 'tiaki', t: 'Etihad EY19 · Fri 21 Mar\nAUH 09:30 → LHR 13:55\nNonstop · 7h 25m · Business\n$2,180', ms: 4700 },
+    { s: 'tiaki', t: 'Also found Emirates EK002 from DXB, slightly cheaper. Want to see it?', ms: 5700 },
+    { s: 'me',    t: 'no the etihad one is good', ms: 7000 },
+    { s: 'type',  ms: 7800 },
+    { s: 'tiaki', t: 'Shall I book it? Your Amex ending 4821 will be charged $2,180.', ms: 8900 },
+    { s: 'me',    t: 'yes', ms: 10200 },
+    { s: 'type',  ms: 11000 },
+    { s: 'tiaki', t: '✅ Booked. Reference: EY4821\nConfirmation sent to your email.', ms: 12300 },
+  ];
+
+  const msgArea = document.getElementById('msgArea');
+  const typingEl = document.getElementById('typingEl');
+  let timers = [];
+
+  const POOL_SIZE = 8;
+  const pool = [];
+  for (let i = 0; i < POOL_SIZE; i++) {
+    const el = document.createElement('div');
+    el.className = 'imsg-bubble';
+    el.style.display = 'none';
+    msgArea.insertBefore(el, typingEl);
+    pool.push(el);
+  }
+  let poolIdx = 0;
+
+  function showBubble(side, text) {
+    typingEl.classList.remove('show');
+    const el = pool[poolIdx % POOL_SIZE];
+    poolIdx++;
+    el.className = `imsg-bubble ${side}`;
+    el.textContent = text;
+    el.style.display = '';
+    el.classList.remove('show');
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    msgArea.scrollTop = msgArea.scrollHeight;
+  }
+
+  function resetPool() {
+    pool.forEach(el => { el.style.display = 'none'; el.classList.remove('show'); });
+    poolIdx = 0;
+    typingEl.classList.remove('show');
+  }
+
+  function runDemo() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    resetPool();
+    MSGS.forEach(m => {
+      const t = setTimeout(() => {
+        if (m.s === 'type') { typingEl.classList.add('show'); msgArea.scrollTop = msgArea.scrollHeight; }
+        else showBubble(m.s, m.t);
+      }, m.ms);
+      timers.push(t);
+    });
+    timers.push(setTimeout(runDemo, MSGS[MSGS.length - 1].ms + 3500));
+  }
+
+  const obs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { runDemo(); obs.disconnect(); }
+  }, { threshold: 0.1 });
+  obs.observe(document.getElementById('phoneDemoWrap'));
+
+  // ── Form ──────────────────────────────────────────────
+  const submitBtn = document.getElementById('submitBtn');
+  const validateEmail = e => /[^@\s]+@[^@\s]+\.[^@\s]+/.test(e);
+
+  function setError(id, msg) {
+    const f = document.getElementById(id); f.classList.add('error');
+    let e = f.querySelector('.error-text');
+    if (!e) { e = document.createElement('div'); e.className = 'error-text'; f.appendChild(e); }
+    e.textContent = msg;
+  }
+  function clearError(id) {
+    const f = document.getElementById(id); f.classList.remove('error');
+    const e = f.querySelector('.error-text'); if (e) e.remove();
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async () => {
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const airport = document.getElementById('airport').value.trim().toUpperCase();
+      let valid = true;
+      clearError('field-name'); clearError('field-email'); clearError('field-airport');
+      if (!name) { setError('field-name', 'Required'); valid = false; }
+      if (!email || !validateEmail(email)) { setError('field-email', 'Valid email required'); valid = false; }
+      if (!airport) { setError('field-airport', 'Required'); valid = false; }
+      if (!valid) return;
+      submitBtn.disabled = true; submitBtn.textContent = 'Joining…';
+      try {
+        const resp = await fetch('/waitlist/join', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, home_airport: airport })
+        });
+        if (!resp.ok) throw new Error();
+        document.getElementById('waitlistForm').style.display = 'none';
+        document.getElementById('successMsg').classList.add('visible');
+      } catch {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Join waitlist <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        setError('field-email', 'Something went wrong. Try again.');
+      }
+    });
+    ['name','email','airport'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => clearError(`field-${id}`));
+    });
+  }
+</script>
+</body>
+</html>
