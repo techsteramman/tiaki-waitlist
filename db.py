@@ -115,3 +115,10 @@ async def is_already_signed_up(phone: str) -> bool:
         )
         row = await cur.fetchone()
         return bool(row and row[0])
+
+async def get_total_signups() -> int:
+    pool = await get_pool()
+    async with pool.connection() as conn:
+        cur = await conn.execute("SELECT COUNT(*) FROM waitlist WHERE signed_up = TRUE")
+        row = await cur.fetchone()
+        return row[0] if row else 0
