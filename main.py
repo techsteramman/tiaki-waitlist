@@ -1,5 +1,5 @@
 """
-Tiaki Waitlist — iMessage via BlueBubbles webhook + typing indicators
+Tiaki Waitlist — BlueBubbles polling + typing indicators + AI conversation
 """
 from dotenv import load_dotenv
 load_dotenv()
@@ -22,6 +22,7 @@ from conversation import get_ai_response
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
+POLL_INTERVAL = 2
 MAX_SIGNUPS = 500
 MAX_CONCURRENT = 10
 MAX_OUTBOUND_PER_MIN = 20
@@ -100,6 +101,7 @@ async def process_message(handle: str, text: str):
                 session = await get_or_create_session(handle, handle_type=handle_type)
                 history = conversation_history[handle]
 
+                # Show typing while AI thinks
                 await send_typing(handle, True)
                 await asyncio.sleep(1.2)
 
@@ -120,6 +122,7 @@ async def process_message(handle: str, text: str):
                         await save_field(handle, field, value)
                         logger.info(f"Saved {field}={value} for {handle}")
 
+                # Send as multiple messages with typing between each
                 parts = [p.strip() for p in reply.split("\n") if p.strip()]
                 for i, part in enumerate(parts):
                     if i > 0:
@@ -134,32 +137,60 @@ async def process_message(handle: str, text: str):
                 await send_imessage(handle, "Sorry, something went wrong. Try again in a moment!")
 
 
-# ── Webhook registration ──────────────────────────────────────────────────────
+# ── Polling ───────────────────────────────────────────────────────────────────
 
-async def register_webhook():
-    public_url = getattr(config, 'public_url', 'http://localhost:8001')
-    target = f"{public_url}/webhook/bluebubbles"
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                f"{config.bb_url}/api/v1/webhook?password={config.bb_password}"
-            )
-            if resp.status_code == 200:
-                existing = resp.json().get("data", [])
-                for w in existing:
-                    if w.get("url") == target:
-                        logger.info(f"Webhook already registered: {target}")
-                        return
-            resp = await client.post(
-                f"{config.bb_url}/api/v1/webhook?password={config.bb_password}",
-                json={"url": target, "events": ["new-message"]}
-            )
-            if resp.status_code == 200:
-                logger.info(f"Webhook registered: {target}")
-            else:
-                logger.warning(f"Webhook registration failed: {resp.status_code} {resp.text}")
-    except Exception as e:
-        logger.warning(f"Could not register webhook: {e}")
+async def get_messages_since(chat_guid: str, last_rowid: int) -> list:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{config.bb_url}/api/v1/message/query?password={config.bb_password}",
+            json={"chatGuid": chat_guid, "limit": 10, "offset": 0, "with": ["chats"]}
+        )
+    if resp.status_code != 200:
+        return []
+    messages = resp.json().get("data", [])
+    new = []
+    for msg in messages:
+        rowid = msg.get("originalROWID", 0)
+        is_from_me = msg.get("isFromMe", True)
+        text = msg.get("text", "")
+        handle = (msg.get("handle") or {}).get("address", "")
+        if rowid > last_rowid and not is_from_me and text and text.strip() and handle:
+            new.append({"rowid": rowid, "text": text.strip(), "handle": handle})
+    return sorted(new, key=lambda x: x["rowid"])
+
+
+async def get_all_active_chats() -> list:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{config.bb_url}/api/v1/chat/query?password={config.bb_password}",
+            json={"limit": 100, "offset": 0}
+        )
+    if resp.status_code != 200:
+        return []
+    chats = resp.json().get("data", [])
+    return [c["guid"] for c in chats if c.get("guid", "").startswith("iMessage;-;")]
+
+
+async def poll_loop():
+    last_rowids: dict = {}
+    chats = await get_all_active_chats()
+    for chat_guid in chats:
+        msgs = await get_messages_since(chat_guid, 0)
+        last_rowids[chat_guid] = msgs[-1]["rowid"] if msgs else 0
+    logger.info(f"Polling {len(chats)} chats.")
+
+    while True:
+        try:
+            chats = await get_all_active_chats()
+            for chat_guid in chats:
+                last = last_rowids.get(chat_guid, 0)
+                new_msgs = await get_messages_since(chat_guid, last)
+                for msg in new_msgs:
+                    last_rowids[chat_guid] = msg["rowid"]
+                    asyncio.create_task(process_message(msg["handle"], msg["text"]))
+        except Exception as e:
+            logger.warning(f"Poll error: {e}")
+        await asyncio.sleep(POLL_INTERVAL)
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
@@ -168,7 +199,8 @@ async def register_webhook():
 async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database ready.")
-    await register_webhook()
+    asyncio.create_task(poll_loop())
+    logger.info("Polling started.")
     yield
 
 
@@ -179,32 +211,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/")
 async def root():
     return RedirectResponse(url="/static/landing.html")
-
-
-@app.post("/webhook/bluebubbles")
-async def bluebubbles_webhook(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"ok": True})
-
-    if body.get("type") != "new-message":
-        return JSONResponse({"ok": True})
-
-    data = body.get("data", {})
-    if data.get("isFromMe", True):
-        return JSONResponse({"ok": True})
-
-    text = (data.get("text") or "").strip()
-    if not text:
-        return JSONResponse({"ok": True})
-
-    handle = (data.get("handle") or {}).get("address", "")
-    if not handle:
-        return JSONResponse({"ok": True})
-
-    asyncio.create_task(process_message(handle, text))
-    return JSONResponse({"ok": True})
 
 
 @app.post("/waitlist/join")
@@ -224,7 +230,7 @@ async def join_waitlist(request: Request):
     session = await get_or_create_session(email, handle_type="email")
     await save_field(email, "name", name)
     await save_field(email, "email", email)
-    await save_field(email, "routes", home_airport)
+    await save_field(email, "home_airport", home_airport)
     await mark_complete(email)
     return JSONResponse({"ok": True})
 

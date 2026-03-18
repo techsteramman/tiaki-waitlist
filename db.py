@@ -40,7 +40,7 @@ async def init_db():
                 name         TEXT,
                 email        TEXT,
                 phone_number TEXT,
-                routes       TEXT,
+                home_airport TEXT,
                 state        TEXT NOT NULL DEFAULT 'new',
                 signed_up    BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
