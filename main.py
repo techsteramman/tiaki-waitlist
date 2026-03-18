@@ -221,7 +221,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def root():
-    return RedirectResponse(url="/static/landing.html")
+    return RedirectResponse(url="/static/index.html")
 
 
 @app.post("/waitlist/join")
