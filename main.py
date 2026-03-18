@@ -79,6 +79,15 @@ async def send_typing(to: str, active: bool = True):
     except Exception as e:
         logger.warning(f"Typing indicator failed: {e}")
 
+async def send_read_receipt(chat_guid: str):
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{config.bb_url}/api/v1/chat/{chat_guid}/read?password={config.bb_password}"
+            )
+    except Exception as e:
+        logger.warning(f"Read receipt failed: {e}")
+
 
 # ── Process message ───────────────────────────────────────────────────────────
 
@@ -87,6 +96,8 @@ async def process_message(handle: str, text: str):
         async with user_locks[handle]:
             logger.info(f"← {handle}: {text[:60]}")
             handle_type = "phone" if handle.startswith("+") else "email"
+
+            await send_read_receipt(f"iMessage;-;{handle}")
 
             try:
                 if await is_already_signed_up(handle):
