@@ -510,6 +510,18 @@ footer {
 }
 .footer-note { font-size: 10px; color: var(--stone); }
 
+@media (max-width: 900px) {
+  .nav {
+    background: var(--accent);
+    border-bottom: none;
+  }
+  .nav-logo { color: #fff; }
+  .nav-tag {
+    color: #fff;
+    border-color: rgba(255,255,255,0.5);
+  }
+}
+
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
