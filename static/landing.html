@@ -798,7 +798,7 @@ footer {
       if (!valid) return;
       submitBtn.disabled = true; submitBtn.textContent = 'Joining…';
       try {
-        const resp = await fetch('/waitlist/join', {
+        const resp = await fetch('https://api.tiakiai.com/waitlist/join', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, home_airport: airport })
         });
