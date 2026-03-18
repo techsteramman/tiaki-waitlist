@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Tiaki — Flight Booking Over iMessage</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400&family=Cormorant+Garamond:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="05940571-097c-48f8-8971-e3cf2a0c0157"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -638,7 +639,7 @@ footer {
   <h2>Get early<br>access</h2>
 
   <div class="imessage-mode" id="imessageMode">
-    <a class="imessage-btn" href="#" id="imessageBtn">
+    <a class="imessage-btn" href="#" id="imessageBtn" data-umami-event="iMessage Button Clicked">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M8 1C4.134 1 1 3.806 1 7.25c0 1.742.773 3.312 2.02 4.436L2.5 14l2.668-1.199A7.2 7.2 0 008 13.5c3.866 0 7-2.806 7-6.25S11.866 1 8 1z" fill="currentColor"/>
       </svg>
@@ -664,7 +665,7 @@ footer {
         <label for="airport">Home airport</label>
         <input type="text" id="airport" placeholder="AUH, DXB, LHR…" autocomplete="off">
       </div>
-      <button class="submit-btn" id="submitBtn" type="button">
+      <button class="submit-btn" id="submitBtn" type="button" data-umami-event="Waitlist Form Submitted">
         Join waitlist
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -687,7 +688,7 @@ footer {
 <script>
   // ── CONFIG ────────────────────────────────────────────
   const SIGNUP_MODE = 'imessage'; // 'imessage' or 'form'
-  const IMESSAGE_NUMBER = '+1XXXXXXXXXX';
+  const IMESSAGE_NUMBER = 'bookings@tiakiai.com';
   // ─────────────────────────────────────────────────────
 
   if (SIGNUP_MODE === 'imessage') {
